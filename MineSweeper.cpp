@@ -9,9 +9,9 @@
 #include <SFML\Window.hpp>
 
 #define CELL_SIZE 32
-#define WIDTH_10 320
-#define HEIGHT_10 320
-#define MINES 10
+#define WIDTH 480
+#define HEIGHT 512
+#define MINES 35
 
 enum state_of_cell
 {
@@ -37,10 +37,12 @@ class cl_cell
 {
 public:
 	Sprite sprite;
-	state_of_cell state;					// to define which part of texture is used
-	state_of_cell value;					// 0 - 8 mines around. 9 if mine.
+	state_of_cell state;					/* to define which part of texture is used. */
+	state_of_cell value;					/* 0 - 8 mines around. 9 if mine. */
 	int mine;
-	bool open;
+	bool open;								/* state of cell during work of DFS. */
+	int dx[8] = { 0,0,1,-1,1,1,-1,-1 };
+	int dy[8] = { 1,-1,1,1,0,-1,-1,0 };
 	cl_cell()
 	{
 		state = CLOSED;
@@ -48,24 +50,25 @@ public:
 		mine = 0;
 		open = false;
 	};
+
 	void change_value(state_of_cell val)
 	{
 		value = val;
 	}
+
 	void change_state(state_of_cell st)
 	{
 		state = st;
 		sprite.setTextureRect(IntRect(state * 32, 0, 32, 32));
 	}
-	void change_texture()				// "open" the cell
+
+	void change_texture()				/* "open" the cell */
 	{
 		state = value;
 		sprite.setTextureRect(IntRect(state * 32, 0, 32, 32));
 	}
-	void open_empty_cell(cl_cell** cell, int x, int y, int i, int j)
-	{
 
-	}
+
 };
 
 class field
@@ -74,11 +77,13 @@ public:
 	int width;
 	int height;
 	int amount_of_mines; 
+	bool token;
 	field (int w, int h, int am) 
 	{
 		width = w;
 		height = h;
 		amount_of_mines = am;
+		token = true;
 	}
 
 	/*place mines on the field and count value for each cell. */
@@ -88,17 +93,20 @@ public:
 
 		/* place mines and change value for cell that was chosen. */
 
-		if ((y > 0) && (y + 1 < i) && (x > 0) && (x + 1 < j))
-		{
-			for (int k = y - 1; k <= y + 1; k++)
-			{
-				for (int m = x - 1; m <= x + 1; m++)
-				{
-					cell[k][m].value = N1;
-				}
-			}
+
+		/* at first change value of near cells to avoid the posibility of placing mines in them */
+
+		if ((y > 0) && (y + 1 < i) && (x > 0) && (x + 1 < j))	/* if not a borden cell was chosen. */
+		{															
+			for (int k = y - 1; k <= y + 1; k++)					
+			{														
+				for (int m = x - 1; m <= x + 1; m++)					
+				{														
+					cell[k][m].value = N1;								
+				}													
+			}											
 		}
-		else
+		else													/* if a borden cell was chosen. */
 		{
 			cell[y][x].value = N1;
 			if ((y - 1 >= 0) && (x - 1 >= 0))
@@ -136,7 +144,9 @@ public:
 
 
 		}
+
 		/* place mines. */
+		
 		int new_i, new_j;
 
 		for (int n = 0; n < MINES; n++)
@@ -148,7 +158,6 @@ public:
 				new_j = (std::rand() % j);
 			} while ((cell[new_i][new_j].value == MINE) || (cell[new_i][new_j].value == N1));
 			cell[new_i][new_j].value = MINE;
-			//cell[new_i][new_j].change_texture();
 		}
 		
 		for (int k = 0; k < i; k++)
@@ -159,9 +168,7 @@ public:
 				cell[k][m].value = N0;
 			}
 		}
-	
-		/* --------------------------------------------------------------------------------------------------------------------------- */
-
+		
 		/* define the amount of mines near for each cell. */
 
 		for (int k = 0; k < i; k++)
@@ -214,8 +221,6 @@ public:
 			}
 		}
 
-		/* --------------------------------------------------------------------------------------------------------------------------- */
-
 		/* change the value of each cell according to defines amount of mines near. */
 
 		for (int k = 0; k < i; k++)
@@ -253,25 +258,55 @@ public:
 				}
 			}
 		}
+
+		/* if we need to show field after generation. */
+
+		/* change texture. */
+
+		/*for (int k = 0; k < i; k++)
+		{
+			for (int m = 0; m < j; m++)
+			{
+				cell[k][m].change_texture();
+			}
+		}*/
 	}
 
 	/* --------------------------------------------------------------------------------------------------------------------------- */
 
+	/*Depth-First Search -- to open cell without mines with recursion. */
 
+	void dfs(cl_cell **cell, int x, int y)
+	{
+		const int n_x = WIDTH / CELL_SIZE;
+		const int n_y = HEIGHT / CELL_SIZE;
+
+		if (cell[y][x].open == true)
+			return;
+		cell[y][x].open = true;
+		cell[y][x].change_texture();
+		if (cell[y][x].value == 0)
+		{
+			for (int i = 0; i < 8; i++)
+			{
+				if ((x + cell[y][x].dx[i] >= 0) && (x + cell[y][x].dx[i] < n_x) && (y + cell[y][x].dy[i] >= 0) && (y + cell[y][x].dy[i] < n_y))
+					dfs(cell, x + cell[y][x].dx[i], y + cell[y][x].dy[i]);
+			}
+		}
+	}
 };
 
 
-const std::string texture = "images/Texture.png";
+const std::string texture = "images/Texture.png";		
 
 int main()
 {
 	
 	int amount_of_mines = MINES;
-	
 
 	/* create the instance of class "field" with specified arguments */
 
-	field game_field(WIDTH_10, HEIGHT_10, amount_of_mines);
+	field game_field(WIDTH, HEIGHT, amount_of_mines);
 
 	/* create the window with arguments from class. */
 
@@ -282,12 +317,13 @@ int main()
 	Texture game_texture;
 	game_texture.loadFromFile(texture);
 
-	const int n_x =  WIDTH_10 / CELL_SIZE;		
-	const int n_y = HEIGHT_10 / CELL_SIZE;		
+	/* define the width and the height of the field in cells. */
+
+	const int n_x = WIDTH / CELL_SIZE;		
+	const int n_y = HEIGHT / CELL_SIZE;	
 
 	/* create a two-dimensional array of type cl_cell. */
 
-	//cl_cell Cell[n_y][n_x];
 	cl_cell **Cell = new cl_cell *[n_y];
 
 	for (int i = 0; i < n_y; i++)
@@ -325,6 +361,8 @@ int main()
 				int x = Mouse::getPosition(game_field_w).x / CELL_SIZE;
 				int y = Mouse::getPosition(game_field_w).y / CELL_SIZE;
 
+				/* place FLAG/QUESTION. */
+
 				if (event.mouseButton.button == sf::Mouse::Right)
 				{
 					std::cout << Cell[y][x].value << std::endl;
@@ -347,32 +385,26 @@ int main()
 						}
 						break;
 					}
-					//Cell[y][x].sprite.setTextureRect(IntRect(Cell[y][x].state * 32, 0, 32, 32));
-
 				}
+
+
 				if (event.mouseButton.button == sf::Mouse::Left)
 				{
 					int count = 0;
-					
-					/* count the number of empty cells. */
-
-					for (int i = 0; i < n_y; i++)
-					{
-						for (int j = 0; j < n_x; j++)
-						{
-							if (Cell[i][j].state == CLOSED)
-								count++;
-						}
-					}
 
 					/* call generator if our field is empty. */
 
-					if (count == (n_x * n_y)) {
+					if (game_field.token == true) 
+					{
 						game_field.generator(Cell, n_y, n_x, x, y);
-						Cell[y][x].change_texture();
+						game_field.dfs(Cell, x, y);
+						game_field.token = false;
 					}
 					else
 					{
+						if (Cell[y][x].value == N0)
+							game_field.dfs(Cell, x, y);
+						else
 						Cell[y][x].change_texture();
 						if (Cell[y][x].value == MINE)
 						{
@@ -381,7 +413,9 @@ int main()
 						}
 					}
 				}
+				
 				break;
+			
 			}
 		}
 
@@ -401,4 +435,3 @@ int main()
 	getchar();
     return 0;
 }
-
