@@ -9,9 +9,8 @@
 #include <SFML\Window.hpp>
 
 #define CELL_SIZE 32
-#define WIDTH 480
-#define HEIGHT 512
-#define MINES 35
+
+using namespace sf;
 
 enum state_of_cell
 {
@@ -30,16 +29,13 @@ enum state_of_cell
 	MARK	// 12
 };
 
-using namespace sf;
-
-
 class cl_cell
 {
 public:
 	Sprite sprite;
 	state_of_cell state;					/* to define which part of texture is used. */
 	state_of_cell value;					/* 0 - 8 mines around. 9 if mine. */
-	int mine;
+	int mine;								/* amount of mines. */
 	bool open;								/* state of cell during work of DFS. */
 	int dx[8] = { 0,0,1,-1,1,1,-1,-1 };		/* for DFS */
 	int dy[8] = { 1,-1,1,1,0,-1,-1,0 };
@@ -81,17 +77,22 @@ public:
 	int n_y;								/* height of field in cells. */
 	bool token;								/* to call generator. */
 	bool game;								/* to finish the game. */
+	int mode;
 	cl_cell **Cell;							/* array of cells. */
 	Texture texture;
-	field() 
+	Clock game_clock;
+	Time elapsed_time;
+	field(int W, int H, int Am, int M) 
 	{
-		width = WIDTH;					
-		height = HEIGHT;					
-		amount_of_mines = MINES;
+		width = W;					
+		height = H;					
+		amount_of_mines = Am;
+		mode = M;
 		token = true;						
 		game = true;						
 	}
 
+	
 	/* Create a two-dimensional array of type cl_cell. */
 
 	void create_field()
@@ -108,13 +109,16 @@ public:
 
 	void set_texture()
 	{
-		for (int i = 0; i < n_y; i++)
+		if (mode == 1)
 		{
-			for (int j = 0; j < n_x; j++)
+				for (int i = 0; i < n_y; i++)
 			{
-				Cell[i][j].sprite.setPosition(j * 32, i * 32);
-				Cell[i][j].sprite.setTexture(texture);
-				Cell[i][j].sprite.setTextureRect(IntRect(Cell[i][j].state * 32, 0, 32, 32));
+				for (int j = 0; j < n_x; j++)
+				{
+					Cell[i][j].sprite.setPosition(j * 32, i * 32);
+					Cell[i][j].sprite.setTexture(texture);
+					Cell[i][j].sprite.setTextureRect(IntRect(Cell[i][j].state * 32, 0, 32, 32));
+				}
 			}
 		}
 	}
@@ -182,7 +186,7 @@ public:
 		
 		int new_i, new_j;
 
-		for (int n = 0; n < MINES; n++)
+		for (int n = 0; n < amount_of_mines; n++)
 		{
 			std::srand(std::time(NULL));
 			do
@@ -315,8 +319,8 @@ public:
 
 	void dfs(int x, int y)
 	{
-		const int n_x = WIDTH / CELL_SIZE;
-		const int n_y = HEIGHT / CELL_SIZE;
+		const int n_x = width / CELL_SIZE;
+		const int n_y = height / CELL_SIZE;
 
 		if (Cell[y][x].open == true)
 			return;
@@ -377,7 +381,6 @@ public:
 						count_for_flag++;
 				}
 			}
-			std::cout << count_for_flag;
 			if (count_for_flag == Cell[y][x].value)
 			{
 				for (int i = 0; i < 8; i++)
@@ -391,6 +394,8 @@ public:
 							if (Cell[new_y][new_x].value == N0)
 								dfs(new_x, new_y);
 							Cell[new_y][new_x].change_texture();
+							if (Cell[new_y][new_x].value == MINE)
+								game = false;
 						}
 					}
 				}
@@ -401,6 +406,7 @@ public:
 
 		if (token == true)
 		{
+			game_clock.restart();
 			generator(x, y);
 
 		}
@@ -412,7 +418,6 @@ public:
 				Cell[y][x].change_texture();
 			if (Cell[y][x].value == MINE)
 			{
-				std::cout << "Game Over";
 				game = false;
 				//game_field_w.close();
 			}
@@ -420,16 +425,65 @@ public:
 	}
 };
 
+/* Choosing game mode. */
+
+void choose_mode(int &m, int &w, int &h, int &Mode)
+{
+	std::cout << "Chosee field size and amount of mines:\n";
+	std::cout << "1. 10x10; 10m.\n2. 15x15; 50m.\n3. 20x20; 150m.\n4. Special.\n\n";
+
+	int mode;
+	scanf_s("%d", &mode);
+	switch (mode)
+	{
+	case 1:
+		m = 10;
+		w = 320;
+		h = 320;
+		break;
+	case 2:
+		m = 40;
+		w = 480;
+		h = 480;
+		break;
+	case 3:
+		m = 150;
+		w = 640;
+		h = 640;
+		break;
+	case 4:
+		std::cout << "Enter the width ( <=20 ): ";
+		scanf_s("%d", &w);
+		w = w * CELL_SIZE;
+		std::cout << "\nEnter the height ( <=20 ): ";
+		scanf_s("%d", &h);
+		h = h * CELL_SIZE;
+		std::cout << "\nEnter the amount of mines ( <400 ): ";
+		scanf_s("%d", &m);
+		break;
+	default:
+		break;
+	}
+
+	std::cout << "\nChose the game mode (1 or 2): ";
+	scanf_s("%d", &Mode);
+}
+
 
 const std::string texture = "images/Texture.png";		
 
 int main()
 {
-	int amount_of_mines = MINES;
+	int Mode;
+	int Mines;
+	int Width;
+	int Height;
+
+	choose_mode(Mines, Width, Height, Mode);
 
 	/* create the instance of class "field" with specified arguments */
 
-	field game_field;
+	field game_field(Width, Height, Mines, Mode);
 
 	/* create the window with arguments from class. */
 
@@ -441,8 +495,8 @@ int main()
 
 	/* define the width and the height of the field in cells. */
 
-	game_field.n_x = WIDTH / CELL_SIZE;		
-	game_field.n_y = HEIGHT / CELL_SIZE;	
+	game_field.n_x = Width / CELL_SIZE;		
+	game_field.n_y = Height / CELL_SIZE;	
 
 	/* create a two-dimensional array of type cl_cell. */
 
@@ -458,7 +512,6 @@ int main()
 
 	while (game_field_w.isOpen())
 	{
-		
 		Event event;
 		while (game_field_w.pollEvent(event))
 		{
@@ -473,11 +526,11 @@ int main()
 				int x = Mouse::getPosition(game_field_w).x / CELL_SIZE;
 				int y = Mouse::getPosition(game_field_w).y / CELL_SIZE;
 
-				if (event.mouseButton.button == sf::Mouse::Right)
+				if (event.mouseButton.button == Mouse::Right)
 				
 					game_field.Right_Button(x, y);
 
-				if (event.mouseButton.button == sf::Mouse::Left)
+				if (event.mouseButton.button == Mouse::Left)
 		
 					game_field.Left_Button(x, y);
 				
@@ -498,7 +551,11 @@ int main()
 		game_field_w.display();
 
 		if (game_field.game == false)
+		{
 			game_field_w.close();
+			game_field.elapsed_time = game_field.game_clock.getElapsedTime();
+			std::cout << "Game Over\nYour time: " << (int)game_field.elapsed_time.asSeconds() << "sec";
+		}
 	}
 
 	getchar();
