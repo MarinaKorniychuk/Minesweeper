@@ -12,6 +12,8 @@
 
 using namespace sf;
 
+const std::string texture = "images/Texture1.png";
+
 enum state_of_cell
 {
 	N0,		// 0
@@ -26,7 +28,8 @@ enum state_of_cell
 	MINE,	// 9
 	CLOSED, // 10
 	FLAG,	// 11
-	MARK	// 12
+	MARK,	// 12
+	CL_FLAG // 13
 };
 
 class cl_cell
@@ -64,7 +67,6 @@ public:
 		sprite.setTextureRect(IntRect(state * 32, 0, 32, 32));
 	}
 
-
 };
 
 class field
@@ -92,7 +94,6 @@ public:
 		game = true;						
 	}
 
-	
 	/* Create a two-dimensional array of type cl_cell. */
 
 	void create_field()
@@ -109,16 +110,15 @@ public:
 
 	void set_texture()
 	{
-		if (mode == 1)
+		for (int i = 0; i < n_y; i++)
 		{
-				for (int i = 0; i < n_y; i++)
+			for (int j = 0; j < n_x; j++)
 			{
-				for (int j = 0; j < n_x; j++)
-				{
-					Cell[i][j].sprite.setPosition(j * 32, i * 32);
-					Cell[i][j].sprite.setTexture(texture);
-					Cell[i][j].sprite.setTextureRect(IntRect(Cell[i][j].state * 32, 0, 32, 32));
-				}
+				if (mode == 2)
+					Cell[i][j].change_state(CL_FLAG);
+				Cell[i][j].sprite.setPosition(j * 32, i * 32);
+				Cell[i][j].sprite.setTexture(texture);
+				Cell[i][j].sprite.setTextureRect(IntRect(Cell[i][j].state * 32, 0, 32, 32));
 			}
 		}
 	}
@@ -302,7 +302,7 @@ public:
 		{
 			for (int m = 0; m < n_x; m++)
 			{
-				cell[k][m].change_texture();
+				Cell[k][m].change_texture();
 			}
 		}*/
 
@@ -336,12 +336,82 @@ public:
 		}
 	}
 
+	/* Open all cell near if all flags placed*/
+
+	void Open_All_Around(int x, int y)
+	{
+		int count_for_flag = 0;
+		for (int i = 0; i < 8; i++)
+		{
+			int new_x = x + Cell[y][x].dx[i];
+			int new_y = y + Cell[y][x].dy[i];
+			if ((new_x >= 0) && (new_x < n_x) && (new_y >= 0) && (new_y < n_y))
+			{
+				if (Cell[new_y][new_x].state == FLAG)
+					count_for_flag++;
+			}
+		}
+		if (count_for_flag == Cell[y][x].value)
+		{
+			for (int i = 0; i < 8; i++)
+			{
+				int new_x = x + Cell[y][x].dx[i];
+				int new_y = y + Cell[y][x].dy[i];
+				if ((new_x >= 0) && (new_x < n_x) && (new_y >= 0) && (new_y < n_y))
+				{
+					if (Cell[new_y][new_x].state != FLAG)
+					{
+						if (Cell[new_y][new_x].value == N0)
+							dfs(new_x, new_y);
+						Cell[new_y][new_x].change_texture();
+						if (Cell[new_y][new_x].value == MINE)
+							game = false;
+					}
+				}
+			}
+		}
+	}
+
 	/* Actions for Right button pressed*/
+
+	void Right_Button_for_m2(int x, int y)
+	{
+		/* call generator if our field is empty. */
+
+		if (token == true)
+		{
+			game_clock.restart();
+			generator(x, y);
+
+		}
+		else
+		{
+			if (Cell[y][x].state == CL_FLAG)
+			{
+				if (Cell[y][x].value == N0)
+					dfs(x, y);
+				else
+					Cell[y][x].change_texture();
+				if (Cell[y][x].value == MINE)
+				{
+					game = false;
+				}
+			}
+			/*if ((Cell[y][x].value >= N1) && (Cell[y][x].value <= N8))
+			Open_All_Around(x, y);*/
+		}
+	}
 
 	void Right_Button(int x, int y)
 	{
-		/* place FLAG/QUESTION/CLOSED. */
-
+		/* for mode 2. */
+		if (mode == 2)
+		{
+			Right_Button_for_m2(x, y);
+			return;
+		}
+		
+		/* for mode 1. */
 		while (1)
 		{
 			if (Cell[y][x].state == CLOSED)
@@ -365,41 +435,41 @@ public:
 
 	/* Actions for Left button pressed*/
 
+	void Right_Left_for_m2(int x, int y)
+	{
+		if ((Cell[y][x].value >= N1) && (Cell[y][x].value <= N8))
+			Open_All_Around(x, y);
+
+		while (1)
+		{
+
+			if (Cell[y][x].state == FLAG)
+			{
+				Cell[y][x].change_state(CL_FLAG);
+				break;
+			}
+			if (Cell[y][x].state == CL_FLAG)
+			{
+				Cell[y][x].change_state(FLAG);
+				break;
+			}
+			break;
+		}
+
+	}
+
 	void Left_Button(int x, int y)
 	{
-
+		/* for mode 2. */
+		if (mode == 2)
+		{
+			Right_Left_for_m2(x, y);
+			return;
+		}
+		/* for mode 1. */
 		if ((Cell[y][x].value >= N1) && (Cell[y][x].value <= N8))
 		{
-			int count_for_flag = 0;
-			for (int i = 0; i < 8; i++)
-			{
-				int new_x = x + Cell[y][x].dx[i];
-				int new_y = y + Cell[y][x].dy[i];
-				if ((new_x >= 0) && (new_x < n_x) && (new_y >= 0) && (new_y < n_y))
-				{
-					if (Cell[new_y][new_x].state == FLAG)
-						count_for_flag++;
-				}
-			}
-			if (count_for_flag == Cell[y][x].value)
-			{
-				for (int i = 0; i < 8; i++)
-				{
-					int new_x = x + Cell[y][x].dx[i];
-					int new_y = y + Cell[y][x].dy[i];
-					if ((new_x >= 0) && (new_x < n_x) && (new_y >= 0) && (new_y < n_y))
-					{
-						if (Cell[new_y][new_x].state != FLAG)
-						{
-							if (Cell[new_y][new_x].value == N0)
-								dfs(new_x, new_y);
-							Cell[new_y][new_x].change_texture();
-							if (Cell[new_y][new_x].value == MINE)
-								game = false;
-						}
-					}
-				}
-			}
+			Open_All_Around(x, y);
 		}
 
 		/* call generator if our field is empty. */
@@ -419,7 +489,6 @@ public:
 			if (Cell[y][x].value == MINE)
 			{
 				game = false;
-				//game_field_w.close();
 			}
 		}
 	}
@@ -427,7 +496,7 @@ public:
 
 /* Choosing game mode. */
 
-void choose_mode(int &m, int &w, int &h, int &Mode)
+void choose_mode(int &m, int &w, int &h, int &g_mode)
 {
 	std::cout << "Chosee field size and amount of mines:\n";
 	std::cout << "1. 10x10; 10m.\n2. 15x15; 50m.\n3. 20x20; 150m.\n4. Special.\n\n";
@@ -437,17 +506,17 @@ void choose_mode(int &m, int &w, int &h, int &Mode)
 	switch (mode)
 	{
 	case 1:
-		m = 10;
+		m = 15;
 		w = 320;
 		h = 320;
 		break;
 	case 2:
-		m = 40;
+		m = 50;
 		w = 480;
 		h = 480;
 		break;
 	case 3:
-		m = 150;
+		m = 80;
 		w = 640;
 		h = 640;
 		break;
@@ -466,11 +535,8 @@ void choose_mode(int &m, int &w, int &h, int &Mode)
 	}
 
 	std::cout << "\nChose the game mode (1 or 2): ";
-	scanf_s("%d", &Mode);
+	scanf_s("%d", &g_mode);
 }
-
-
-const std::string texture = "images/Texture.png";		
 
 int main()
 {
@@ -537,7 +603,6 @@ int main()
 				break;
 			}
 		}
-
 
 		game_field_w.clear();
 
