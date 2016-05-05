@@ -141,12 +141,12 @@ public:
 		time.setFont(font);
 		time.setCharacterSize(75);
 		time.setColor(sf::Color::Red);
-		time.setPosition(sf::Vector2f(10, 1));
+		time.setPosition(10, 0);
 
 		count.setFont(font);
 		count.setCharacterSize(75);
 		count.setColor(sf::Color::Red);
-		count.setPosition(sf::Vector2f(width - 75, 1));
+		count.setPosition(width - 75, 0);
 
 	}
 
@@ -454,20 +454,38 @@ public:
 
 	void Close_cells(int mode)
 	{
-		for (int k = 0; k < n_y; k++)
+		if (mode == 1)
 		{
-			for (int m = 0; m < n_x; m++)
+			for (int k = 0; k < n_y; k++)
 			{
-				Cell[k][m].state = CLOSED;
-				Cell[k][m].value = N0;
-				Cell[k][m].mine = 0;
-				Cell[k][m].open = false;
-				if (mode == 2)
-					Cell[k][m].change_state(CL_FLAG);
-				if (mode == 1)
+				for (int m = 0; m < n_x; m++)
+				{
+					Cell[k][m].state = CLOSED;
+					Cell[k][m].value = N0;
+					Cell[k][m].mine = 0;
+					Cell[k][m].open = false;
 					Cell[k][m].change_state(CLOSED);
+				}
 			}
 		}
+
+		if (mode == 2)
+		{
+			for (int k = 0; k < n_y; k++)
+			{
+				for (int m = 0; m < n_x; m++)
+				{
+					Cell[k][m].state = CL_FLAG;
+					Cell[k][m].value = N0;
+					Cell[k][m].mine = 0;
+					Cell[k][m].open = false;
+					Cell[k][m].change_state(CL_FLAG);
+				}
+			}
+		}
+		
+			
+
 		left = amount_of_mines;
 	}
 
@@ -590,13 +608,13 @@ public:
 		while (1)
 		{
 
-			if (Cell[y][x].state == FLAG)
+			if ((Cell[y][x].state == FLAG) &&  (token == false))
 			{
 				Cell[y][x].change_state(CL_FLAG);
 				left++;
 				break;
 			}
-			if (Cell[y][x].state == CL_FLAG)
+			if ((Cell[y][x].state == CL_FLAG) && (token == false))
 			{
 				Cell[y][x].change_state(FLAG);
 				left--;
@@ -814,6 +832,7 @@ void main()
 							game = 1;
 							game_field.game_clock.restart();
 							game_field.game = true;
+							break;
 						}
 
 
@@ -835,7 +854,7 @@ void main()
 
 				if (token == 0)
 				{
-					Mode = 0;
+					Mode = 1;
 					Mines = 0;
 					Width = 0;
 					Height = 0;
@@ -896,6 +915,7 @@ void main()
 							win_w.display();
 						}
 						game_field.left = game_field.amount_of_mines;
+						break;
 					}
 					else
 						game_field.game = false;
