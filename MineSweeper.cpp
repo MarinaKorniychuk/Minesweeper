@@ -3,16 +3,16 @@
 
 #include "stdafx.h"
 #include <iostream>
-#include "string"
+#include <string>
+#include <sstream>
 #include <SFML\Graphics.hpp>
 #include <SFML\System.hpp>
 #include <SFML\Window.hpp>
 
 #define CELL_SIZE 32
+#define HEIGHT 3 * CELL_SIZE
 
 using namespace sf;
-
-const std::string texture = "images/Texture1.png";
 
 enum state_of_cell
 {
@@ -80,10 +80,23 @@ public:
 	bool token;								/* to call generator. */
 	bool game;								/* to finish the game. */
 	int mode;
+	int left;
 	cl_cell **Cell;							/* array of cells. */
 	Texture texture;
+	Texture tex_for_top;
+	Texture tex_time;
+	Texture tex_smile;
+	Sprite top_sprite;
+	Sprite count_sp;
+	Sprite time_sp;
+	Sprite smile;
+	Font font;
+	Text time;
+	Text count;
 	Clock game_clock;
+	Clock temp;
 	Time elapsed_time;
+
 	field(int W, int H, int Am, int M) 
 	{
 		width = W;					
@@ -91,14 +104,63 @@ public:
 		amount_of_mines = Am;
 		mode = M;
 		token = true;						
-		game = true;						
+		game = true;	
+		left = amount_of_mines;
+	}
+
+	void make_sprites()
+	{
+		/* loading the texture for sprites. */
+
+		texture.loadFromFile("images/Texture1.png");
+		tex_for_top.loadFromFile("images/top.png");
+		tex_time.loadFromFile("images/for_top.png");
+		tex_smile.loadFromFile("images/for_top.png");
+
+		/* loading the font. */
+
+		font.loadFromFile("digital-7.ttf");
+
+
+		top_sprite.setPosition(0, 0);
+		top_sprite.setTexture(tex_for_top);
+		top_sprite.setTextureRect(sf::IntRect(0, 0, width, HEIGHT));
+
+		smile.setPosition((width / 2) - CELL_SIZE, CELL_SIZE / 2);
+		smile.setTexture(tex_smile);
+		smile.setTextureRect(sf::IntRect(0, 0, 2 * CELL_SIZE, 2 * CELL_SIZE));
+
+		count_sp.setPosition(width - 3 * CELL_SIZE - 4, CELL_SIZE / 2);
+		count_sp.setTexture(tex_smile);
+		count_sp.setTextureRect(sf::IntRect(4 * CELL_SIZE, 0, 3 * CELL_SIZE, 2 * CELL_SIZE));
+
+		time_sp.setPosition(4, CELL_SIZE / 2);
+		time_sp.setTexture(tex_smile);
+		time_sp.setTextureRect(sf::IntRect(4 * CELL_SIZE, 0, 3 * CELL_SIZE, 2 * CELL_SIZE));
+
+		time.setFont(font);
+		time.setCharacterSize(75);
+		time.setColor(sf::Color::Red);
+		time.setPosition(sf::Vector2f(10, 1));
+
+		count.setFont(font);
+		count.setCharacterSize(75);
+		count.setColor(sf::Color::Red);
+		count.setPosition(sf::Vector2f(width - 75, 1));
+
 	}
 
 	/* Create a two-dimensional array of type cl_cell. */
 
 	void create_field()
 	{
-		Cell = new cl_cell *[n_y];
+
+		/* define the width and the height of the field in cells. */
+
+		n_x = width / CELL_SIZE;
+		n_y = (height - HEIGHT) / CELL_SIZE;
+
+		Cell = new cl_cell * [n_y];
 
 		for (int i = 0; i < n_y; i++)
 		{
@@ -116,7 +178,7 @@ public:
 			{
 				if (mode == 2)
 					Cell[i][j].change_state(CL_FLAG);
-				Cell[i][j].sprite.setPosition(j * 32, i * 32);
+				Cell[i][j].sprite.setPosition(j * 32, i * 32 + HEIGHT);
 				Cell[i][j].sprite.setTexture(texture);
 				Cell[i][j].sprite.setTextureRect(IntRect(Cell[i][j].state * 32, 0, 32, 32));
 			}
@@ -313,6 +375,8 @@ public:
 		/* change value of token to not call generator any more. */
 
 		token = false;
+
+		game_clock.restart();
 	}
 
 	/* Depth-First Search -- to open cell without mines with recursion. */
@@ -320,7 +384,7 @@ public:
 	void dfs(int x, int y)
 	{
 		const int n_x = width / CELL_SIZE;
-		const int n_y = height / CELL_SIZE;
+		const int n_y = height / CELL_SIZE - HEIGHT / CELL_SIZE;
 
 		if (Cell[y][x].open == true)
 			return;
@@ -372,6 +436,87 @@ public:
 		}
 	}
 
+	/* Open all mines when game is over. */
+
+	void Open_mines()
+	{
+		for (int k = 0; k < n_y; k++)
+		{
+			for (int m = 0; m < n_x; m++)
+			{
+				if (Cell[k][m].value == MINE)
+					Cell[k][m].change_texture();
+			}
+		}
+	}
+
+	/* Close all cells. */
+
+	void Close_cells(int mode)
+	{
+		for (int k = 0; k < n_y; k++)
+		{
+			for (int m = 0; m < n_x; m++)
+			{
+				Cell[k][m].state = CLOSED;
+				Cell[k][m].value = N0;
+				Cell[k][m].mine = 0;
+				Cell[k][m].open = false;
+				if (mode == 2)
+					Cell[k][m].change_state(CL_FLAG);
+				if (mode == 1)
+					Cell[k][m].change_state(CLOSED);
+			}
+		}
+		left = amount_of_mines;
+	}
+
+	/* function for depicting time and amount of mines that not found. */
+
+	void Define_Text()
+	{
+		std::stringstream counter;
+		std::string c;
+		counter << left;
+		counter >> c;
+		count.setString(c);
+
+		std::stringstream timer;
+		std::string str;
+
+		if (game == 1 && left > 0)
+		{
+			temp = game_clock;
+
+			elapsed_time = temp.getElapsedTime();
+			timer << (int)elapsed_time.asSeconds();
+			timer >> str;
+
+			time.setString(str);
+		}
+	}
+
+	/* check field after play. */
+
+	bool Check()
+	{
+		int counter = 0;
+
+		for (int k = 0; k < n_y; k++)
+		{
+			for (int m = 0; m < n_x; m++)
+			{
+				if (Cell[k][m].value == MINE && Cell[k][m].state == FLAG)
+					counter++;
+			}
+		}
+		if (counter == amount_of_mines)
+			return true;
+		else
+			return false;
+
+	}
+	
 	/* Actions for Right button pressed*/
 
 	void Right_Button_for_m2(int x, int y)
@@ -417,11 +562,13 @@ public:
 			if (Cell[y][x].state == CLOSED)
 			{
 				Cell[y][x].change_state(FLAG);
+				left--;
 				break;
 			}
 			if (Cell[y][x].state == FLAG)
 			{
 				Cell[y][x].change_state(MARK);
+				left++;
 				break;
 			}
 			if (Cell[y][x].state == MARK)
@@ -435,7 +582,7 @@ public:
 
 	/* Actions for Left button pressed*/
 
-	void Right_Left_for_m2(int x, int y)
+	void Left_Buttun_for_m2(int x, int y)
 	{
 		if ((Cell[y][x].value >= N1) && (Cell[y][x].value <= N8))
 			Open_All_Around(x, y);
@@ -446,11 +593,13 @@ public:
 			if (Cell[y][x].state == FLAG)
 			{
 				Cell[y][x].change_state(CL_FLAG);
+				left++;
 				break;
 			}
 			if (Cell[y][x].state == CL_FLAG)
 			{
 				Cell[y][x].change_state(FLAG);
+				left--;
 				break;
 			}
 			break;
@@ -463,7 +612,7 @@ public:
 		/* for mode 2. */
 		if (mode == 2)
 		{
-			Right_Left_for_m2(x, y);
+			Left_Buttun_for_m2(x, y);
 			return;
 		}
 		/* for mode 1. */
@@ -496,14 +645,21 @@ public:
 
 /* Choosing game mode. */
 
-void choose_mode(int &m, int &w, int &h, int &g_mode)
+void choose_mode(int &m, int &w, int &h, int x, int y)
 {
-	std::cout << "Chosee field size and amount of mines:\n";
-	std::cout << "1. 10x10; 10m.\n2. 15x15; 50m.\n3. 20x20; 150m.\n4. Special.\n\n";
+	
+	int flag = 0;
 
-	int mode;
-	scanf_s("%d", &mode);
-	switch (mode)
+	if (x >= 305 && x <= 496 && y >= 115 && y <= 188)
+		flag = 1;
+	if (x >= 305 && x <= 496 && y >= 198 && y <= 273)
+		flag = 2;
+	if (x >= 305 && x <= 496 && y >= 283 && y <= 358)
+		flag = 3;
+
+	std::cout << flag;
+
+	switch (flag)
 	{
 	case 1:
 		m = 15;
@@ -511,7 +667,7 @@ void choose_mode(int &m, int &w, int &h, int &g_mode)
 		h = 320;
 		break;
 	case 2:
-		m = 50;
+		m = 40;
 		w = 480;
 		h = 480;
 		break;
@@ -520,49 +676,90 @@ void choose_mode(int &m, int &w, int &h, int &g_mode)
 		w = 640;
 		h = 640;
 		break;
-	case 4:
-		std::cout << "Enter the width ( <=20 ): ";
-		scanf_s("%d", &w);
-		w = w * CELL_SIZE;
-		std::cout << "\nEnter the height ( <=20 ): ";
-		scanf_s("%d", &h);
-		h = h * CELL_SIZE;
-		std::cout << "\nEnter the amount of mines ( <400 ): ";
-		scanf_s("%d", &m);
-		break;
+	
 	default:
 		break;
 	}
-
-	std::cout << "\nChose the game mode (1 or 2): ";
-	scanf_s("%d", &g_mode);
 }
+
 
 int main()
 {
-	int Mode;
-	int Mines;
+	int Mode = 1;
+	int Mines = 0;
 	int Width;
 	int Height;
+	int game = 1;
 
-	choose_mode(Mines, Width, Height, Mode);
+
+	/* create window with menu. choose field size and game mode. */
+
+	RenderWindow menu_window(sf::VideoMode(800, 450), "MineSweeper_Menu");
+	Sprite Menu;
+	Texture tex_menu;
+	tex_menu.loadFromFile("images/menu.png");
+	Menu.setPosition(0, 0);
+	Menu.setTexture(tex_menu);
+	Menu.setTextureRect(sf::IntRect(800, 0, 1600, 450));
+	int tex = 1;
+
+	while (menu_window.isOpen())
+	{
+		Event event;
+		while (menu_window.pollEvent(event))
+		{
+			switch (event.type)
+			{
+			case Event::Closed:
+				menu_window.close();
+				break;
+			case Event::MouseButtonPressed:
+				int x = Mouse::getPosition(menu_window).x;
+				int y = Mouse::getPosition(menu_window).y;
+
+				if (x >= 215 && x <= 262 && y>=381 && y<= 427)
+					while (1)
+					{
+						if (tex == 1)
+						{
+							Menu.setTextureRect(sf::IntRect(0, 0, 800, 450));
+							Mode = 2;
+							tex = 0;
+							break;
+						}
+						if (tex == 0)
+						{
+							Menu.setTextureRect(sf::IntRect(800, 0, 1600, 450));
+							Mode = 1;
+							tex = 1;
+							break;
+						}
+						break;
+					}
+				else
+					choose_mode(Mines, Width, Height, x, y);
+				if (Mines != 0)
+					menu_window.close();
+
+			}
+		}
+
+		menu_window.clear();
+		menu_window.draw(Menu);
+		menu_window.display();
+	}
 
 	/* create the instance of class "field" with specified arguments */
 
-	field game_field(Width, Height, Mines, Mode);
+	field game_field(Width, Height + HEIGHT, Mines, Mode);
 
 	/* create the window with arguments from class. */
 
 	RenderWindow game_field_w(sf::VideoMode(game_field.width, game_field.height), "MineSweeper");
 
-	/* loading the texture for sprite. */ 
+	/* making sprites. */
 
-	game_field.texture.loadFromFile(texture);
-
-	/* define the width and the height of the field in cells. */
-
-	game_field.n_x = Width / CELL_SIZE;		
-	game_field.n_y = Height / CELL_SIZE;	
+	game_field.make_sprites();
 
 	/* create a two-dimensional array of type cl_cell. */
 
@@ -571,8 +768,6 @@ int main()
 	/* setting texture to each sprite. */
 
 	game_field.set_texture();
-	
-	
 
 	/* main cycle. */
 
@@ -589,20 +784,37 @@ int main()
 
 			case Event::MouseButtonPressed:
 
+				if ((Mouse::getPosition(game_field_w).x >= game_field.width / 2 - CELL_SIZE) &&
+					(Mouse::getPosition(game_field_w).x <= game_field.width / 2 + CELL_SIZE) &&
+					(Mouse::getPosition(game_field_w).y >= CELL_SIZE / 2) &&
+					(Mouse::getPosition(game_field_w).y <= CELL_SIZE / 2 + 2 * CELL_SIZE))
+				{
+					game_field.smile.setTextureRect(sf::IntRect(0, 0, 2 * CELL_SIZE, 2 * CELL_SIZE));
+					game_field.Close_cells(Mode);
+					game_field.token = true;
+					game = 1;
+					game_field.game_clock.restart();
+					game_field.game = true;
+				}
+
+
 				int x = Mouse::getPosition(game_field_w).x / CELL_SIZE;
-				int y = Mouse::getPosition(game_field_w).y / CELL_SIZE;
+				int y = Mouse::getPosition(game_field_w).y / CELL_SIZE - HEIGHT / CELL_SIZE;
+				if ((y >= 0) && (game == 1))
+				{
+					if (event.mouseButton.button == Mouse::Right)
 
-				if (event.mouseButton.button == Mouse::Right)
-				
-					game_field.Right_Button(x, y);
+						game_field.Right_Button(x, y);
 
-				if (event.mouseButton.button == Mouse::Left)
-		
-					game_field.Left_Button(x, y);
-				
+					if (event.mouseButton.button == Mouse::Left)
+
+						game_field.Left_Button(x, y);
+				}
 				break;
 			}
 		}
+
+		game_field.Define_Text();
 
 		game_field_w.clear();
 
@@ -613,16 +825,85 @@ int main()
 				game_field_w.draw(game_field.Cell[i][j].sprite);
 			}
 		}
+
+		game_field_w.draw(game_field.top_sprite);
+		game_field_w.draw(game_field.smile);
+		game_field_w.draw(game_field.time_sp);
+		game_field_w.draw(game_field.count_sp);
+		if (game_field.token == false)
+		{
+			game_field_w.draw(game_field.time);
+			game_field_w.draw(game_field.count);
+		}
+
 		game_field_w.display();
+
+		/* if all flags are placed. */
+
+		if (game_field.left == 0)
+			if (game_field.Check())
+			{
+				RenderWindow win_w(sf::VideoMode(250, 120), "Congratulations");
+				Sprite win;
+				Texture tex_win;
+				tex_win.loadFromFile("images/WIN.png");
+				win.setTexture(tex_win);
+				
+				while (win_w.isOpen())
+				{
+					Event w_event;
+					while (win_w.pollEvent(w_event))
+					{
+						switch (w_event.type)
+						{
+						case Event::Closed:
+							win_w.close();
+							break;
+						}
+					}
+					win_w.clear();
+					win_w.draw(win);
+					win_w.display(); 
+				}
+				game_field.left = game_field.amount_of_mines;
+			}
+			else
+				game_field.game = false;
+
+		/* If game is over. */
 
 		if (game_field.game == false)
 		{
-			game_field_w.close();
+			game_field.Open_mines();
+
+			/* Redraw window after openning mines. */
+
+			game_field_w.clear();
+
+			game_field.smile.setTextureRect(sf::IntRect(2 * CELL_SIZE, 0, 2 * CELL_SIZE, 2 * CELL_SIZE));
+			
+			for (int i = 0; i < game_field.n_y; i++)
+			{
+				for (int j = 0; j < game_field.n_x; j++)
+				{
+					game_field_w.draw(game_field.Cell[i][j].sprite);
+				}
+			}
+
+			game_field_w.draw(game_field.top_sprite);
+			game_field_w.draw(game_field.smile);
+			game_field_w.draw(game_field.time_sp);
+			game_field_w.draw(game_field.count_sp);
+			game_field_w.draw(game_field.time);
+			game_field_w.draw(game_field.count);
+
+			game_field_w.display();
+
 			game_field.elapsed_time = game_field.game_clock.getElapsedTime();
-			std::cout << "Game Over\nYour time: " << (int)game_field.elapsed_time.asSeconds() << "sec";
+			game = 0;
+			continue;
 		}
 	}
-
-	getchar();
+	
     return 0;
 }
