@@ -17,7 +17,7 @@ using namespace sf;
 enum state_of_cell
 {
 	N0,		// 0
-	N1,
+	N1,		// 1
 	N2,
 	N3,
 	N4,
@@ -192,7 +192,6 @@ public:
 
 		/* place mines and change value for cell that was chosen. */
 
-
 		/* at first change value of near cells to avoid the posibility of placing mines in them */
 
 		if ((y > 0) && (y + 1 < n_y) && (x > 0) && (x + 1 < n_x))	/* if not a borden cell was chosen. */
@@ -205,43 +204,17 @@ public:
 				}													
 			}											
 		}
-		else													/* if a borden cell was chosen. */
+		else	/* if a borden cell was chosen. */
 		{
-			Cell[y][x].value = N1;
-			if ((y - 1 >= 0) && (x - 1 >= 0))
-			{
-				Cell[y - 1][x - 1].value = N1;
-			}
-			if (y - 1 >= 0)
-			{
-				Cell[y - 1][x].value = N1;
-			}
-			if ((y - 1 >= 0) && (x + 1 < n_x))
-			{
-				Cell[y - 1][x + 1].value = N1;
-			}
-			if (x + 1 < n_x)
-			{
-				Cell[y][x + 1].value = N1;
-			}
-			if (x - 1 >= 0)
-			{
-				Cell[y][x - 1].value = N1;
-			}
-			if ((y + 1 < n_y) && (x - 1 >= 0))
-			{
-				Cell[y + 1][x - 1].value = N1;
-			}
-			if (y + 1 < n_y)
-			{
-				Cell[y + 1][x].value = N1;
-			}
-			if ((y + 1 < n_y) && (x + 1 < n_x))
-			{
-				Cell[y + 1][x + 1].value = N1;
-			}
+			int new_x, new_y;
 
-
+			for (int i = 0; i < 8; i++)
+			{
+				new_x = x + Cell[y][x].dx[i];
+				new_y = y + Cell[y][x].dy[i];
+				if ((new_x >= 0) && (new_x < n_x) && (new_y >= 0) && (new_y < n_y))
+					Cell[new_x][new_y].value = N1;
+			}
 		}
 
 		/* place mines. */
@@ -270,51 +243,21 @@ public:
 		
 		/* define the amount of mines near for each cell. */
 
+		int new_k, new_m;
+
 		for (int k = 0; k < n_y; k++)
 		{
 			for (int m = 0; m < n_x; m++)
 			{
 				if (Cell[k][m].value == MINE)
 				{
-					if ((k - 1 >= 0) && (m - 1 >= 0))
+					for (int i = 0; i < 8; i++)
 					{
-						if (Cell[k - 1][m - 1].value != MINE)
-							Cell[k - 1][m - 1].mine++;
-					}
-					if (k - 1 >= 0)
-					{
-						if (Cell[k - 1][m].value != MINE)
-							Cell[k - 1][m].mine++;
-					}
-					if ((k - 1 >= 0) && (m + 1 < n_x))
-					{
-						if (Cell[k - 1][m + 1].value != MINE)
-							Cell[k - 1][m + 1].mine++;
-					}
-					if (m + 1 < n_x)
-					{
-						if (Cell[k][m + 1].value != MINE)
-							Cell[k][m + 1].mine++;
-					}
-					if (m - 1 >= 0)
-					{
-						if (Cell[k][m - 1].value != MINE)
-							Cell[k][m - 1].mine++;
-					}
-					if ((k + 1 < n_y) && (m - 1 >= 0))
-					{
-						if (Cell[k + 1][m - 1].value != MINE)
-							Cell[k + 1][m - 1].mine++;
-					}
-					if (k + 1 < n_y)
-					{
-						if (Cell[k + 1][m].value != MINE)
-							Cell[k + 1][m].mine++;
-					}
-					if ((k + 1 < n_y) && (m + 1 < n_x))
-					{
-						if (Cell[k + 1][m + 1].value != MINE)
-							Cell[k + 1][m + 1].mine++;
+						new_k = k + Cell[k][m].dy[i];
+						new_m = m + Cell[k][m].dx[i];
+						if ((new_k >= 0) && (new_k < n_y) && (new_m >= 0) && (new_m < n_x))
+							if (Cell[new_k][new_m].value != MINE)
+								Cell[new_k][new_m].mine++;
 					}
 				}
 			}
@@ -326,6 +269,7 @@ public:
 		{
 			for (int m = 0; m < n_x; m++)
 			{
+				//Cell[k][m].value = (state_of_cell)Cell[k][m].mine;
 				switch (Cell[k][m].mine)
 				{
 				case 1:
@@ -390,12 +334,15 @@ public:
 			return;
 		Cell[y][x].open = true;
 		Cell[y][x].change_texture();
+		int new_x, new_y;
 		if (Cell[y][x].value == 0)
 		{
 			for (int i = 0; i < 8; i++)
 			{
-				if ((x + Cell[y][x].dx[i] >= 0) && (x + Cell[y][x].dx[i] < n_x) && (y + Cell[y][x].dy[i] >= 0) && (y + Cell[y][x].dy[i] < n_y))
-					dfs(x + Cell[y][x].dx[i], y + Cell[y][x].dy[i]);
+				new_x = x + Cell[y][x].dx[i];
+				new_y = y + Cell[y][x].dy[i];
+				if ((new_x >= 0) && (new_x < n_x) && (new_y >= 0) && (new_y < n_y))
+					dfs(new_x, new_y);
 			}
 		}
 	}
@@ -574,28 +521,22 @@ public:
 			return;
 		}
 		
-		/* for mode 1. */
-		while (1)
+		if (Cell[y][x].state == CLOSED)
 		{
-			if (Cell[y][x].state == CLOSED)
-			{
-				Cell[y][x].change_state(FLAG);
-				left--;
-				break;
-			}
+			Cell[y][x].change_state(FLAG);
+			left--;
+		}
+		else
 			if (Cell[y][x].state == FLAG)
 			{
 				Cell[y][x].change_state(MARK);
 				left++;
-				break;
 			}
-			if (Cell[y][x].state == MARK)
-			{
-				Cell[y][x].change_state(CLOSED);
-				break;
-			}
-			break;
-		}
+			else
+				if (Cell[y][x].state == MARK)
+				{
+					Cell[y][x].change_state(CLOSED);
+				}
 	}
 
 	/* Actions for Left button pressed*/
@@ -605,24 +546,18 @@ public:
 		if ((Cell[y][x].value >= N1) && (Cell[y][x].value <= N8))
 			Open_All_Around(x, y);
 
-		while (1)
+		
+		if ((Cell[y][x].state == FLAG) &&  (token == false))
 		{
-
-			if ((Cell[y][x].state == FLAG) &&  (token == false))
-			{
-				Cell[y][x].change_state(CL_FLAG);
-				left++;
-				break;
-			}
+			Cell[y][x].change_state(CL_FLAG);
+			left++;
+		}
+		else
 			if ((Cell[y][x].state == CL_FLAG) && (token == false))
 			{
 				Cell[y][x].change_state(FLAG);
 				left--;
-				break;
 			}
-			break;
-		}
-
 	}
 
 	void Left_Button(int x, int y)
@@ -635,9 +570,8 @@ public:
 		}
 		/* for mode 1. */
 		if ((Cell[y][x].value >= N1) && (Cell[y][x].value <= N8))
-		{
 			Open_All_Around(x, y);
-		}
+		
 
 		/* call generator if our field is empty. */
 
@@ -645,7 +579,6 @@ public:
 		{
 			game_clock.restart();
 			generator(x, y);
-
 		}
 		else
 		{
@@ -654,9 +587,7 @@ public:
 			else
 				Cell[y][x].change_texture();
 			if (Cell[y][x].value == MINE)
-			{
 				game = false;
-			}
 		}
 	}
 };
@@ -861,6 +792,7 @@ bool Game()
 			Mines = 0;
 			Width = 0;
 			Height = 0;
+			game = 1;
 			game_field_w.close();
 			break;
 		}
